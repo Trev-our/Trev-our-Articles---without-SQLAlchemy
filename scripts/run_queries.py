@@ -1,69 +1,120 @@
+# lib/debug.py
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from lib.db.connection import get_connection
+from lib.db.seed import seed_database
 from lib.models.author import Author
 from lib.models.magazine import Magazine
 from lib.models.article import Article
 
-def main():
-    while True:
-        print("\n1. List all authors")
-        print("2. List all magazines")
-        print("3. Find author by name")
-        print("4. Find magazine by name")
-        print("5. Find article by title")
-        print("6. List magazines with multiple authors")
-        print("7. List article counts per magazine")
-        print("8. Find most prolific author")
-        print("9. Find top publisher")
-        print("10. Exit")
-        choice = input("Enter choice: ")
-        if choice == "1":
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM authors")
-            print([dict(row) for row in cursor.fetchall()])
-            conn.close()
-        elif choice == "2":
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute("SELECT * FROM magazines")
-            print([dict(row) for row in cursor.fetchall()])
-            conn.close()
-        elif choice == "3":
-            name = input("Enter author name: ")
-            author = Author.find_by_name(name)
-            print(dict(id=author.id, name=author.name) if author else "Author not found")
-        elif choice == "4":
-            name = input("Enter magazine name: ")
-            magazine = Magazine.find_by_name(name)
-            print(dict(id=magazine.id, name=magazine.name, category=magazine.category) if magazine else "Magazine not found")
-        elif choice == "5":
-            title = input("Enter article title: ")
-            article = Article.find_by_title(title)
-            if article:
-                print({
-                    "id": article.id,
-                    "title": article.title,
-                    "author": article.author.name,
-                    "magazine": article.magazine.name
-                })
-            else:
-                print("Article not found")
-        elif choice == "6":
-            magazines = Magazine.with_multiple_authors()
-            print([{"id": m.id, "name": m.name, "category": m.category} for m in magazines])
-        elif choice == "7":
-            counts = Magazine.article_counts()
-            print(counts)
-        elif choice == "8":
-            author = Author.most_prolific()
-            print(dict(id=author.id, name=author.name) if author else "No authors found")
-        elif choice == "9":
-            magazine = Magazine.top_publisher()
-            print(dict(id=magazine.id, name=magazine.name, category=magazine.category) if magazine else "No magazines found")
-        elif choice == "10":
-            break
-        else:
-            print("Invalid choice")
+def authors_for_magazine(magazine_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT DISTINCT a.* FROM authors a
+        JOIN articles art ON a.id = art.author_id
+        WHERE art.magazine_id = ?
+    """, (magazine_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def magazines_with_multiple_authors():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT m.* FROM magazines m
+        JOIN articles art ON m.id = art.magazine_id
+        GROUP BY m.id
+        HAVING COUNT(DISTINCT art.author_id) >= 2
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def article_count_per_magazine():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT m.name, COUNT(a.id) as article_count FROM magazines m
+        LEFT JOIN articles a ON m.id = a.magazine_id
+        GROUP BY m.id
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def most_prolific_author():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT a.* FROM authors a
+        JOIN articles art ON a.id = art.author_id
+        GROUP BY a.id
+        ORDER BY COUNT(art.id) DESC
+        LIMIT 1
+    """)
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def debug():
+    # Run seeding (includes database setup)
+    seed_database()
+
+    # Connect to database
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Print tables
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = [row['name'] for row in cursor.fetchall()]
+    print("\nDatabase Tables:", tables)
+
+    # Print authors
+    cursor.execute("SELECT * FROM authors")
+    authors = [dict(row) for row in cursor.fetchall()]
+    print("\nAuthors:")
+    for author in authors:
+        print(f"ID: {author['id']}, Name: {author['name']}")
+
+    # Print magazines
+    cursor.execute("SELECT * FROM magazines")
+    magazines = [dict(row) for row in cursor.fetchall()]
+    print("\nMagazines:")
+    for magazine in magazines:
+        print(f"ID: {magazine['id']}, Name: {magazine['name']}, Category: {magazine['category']}")
+
+    # Print articles
+    cursor.execute("SELECT * FROM articles")
+    articles = [dict(row) for row in cursor.fetchall()]
+    print("\nArticles:")
+    for article in articles:
+        print(f"ID: {article['id']}, Title: {article['title']}, Author ID: {article['author_id']}, Magazine ID: {article['magazine_id']}")
+
+    # Close database connection
+    conn.close()
+
+    # Run queries
+    print("\nQuery Results:")
+    print("Authors for magazine ID 10:", authors_for_magazine(10))
+    print("Magazines with multiple authors:", magazines_with_multiple_authors())
+    print("Article count per magazine:", article_count_per_magazine())
+    print("Most prolific author:", most_prolific_author())
+
+    # Test model interactions
+    print("\nModel Interactions:")
+    author = Author.find_by_id(10)
+    if author:
+        print(f"Author Name (ID 10): {author.name}")
+        print(f"Articles by Author (ID 10): {author.articles()}")
+        print(f"Magazines by Author (ID 10): {author.magazines()}")
+    
+    magazine = Magazine.find_by_id(10)
+    if magazine:
+        print(f"Magazine Name (ID 10): {magazine.name}")
+        print(f"Article Titles for Magazine (ID 10): {magazine.article_titles()}")
 
 if __name__ == "__main__":
-    main()
+    debug()
