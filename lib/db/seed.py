@@ -15,9 +15,9 @@ def seed_database():
 
         # Insert authors
         authors = [
-            ("Jane Doe",),
-            ("John Smith",),
-            ("Alice Johnson",)
+            ("Trevour Ambia",),
+            ("Alvin Mark",),
+            ("Gloria Venus",)
         ]
         cursor.executemany("INSERT INTO authors (name) VALUES (?)", authors)
 
@@ -30,12 +30,12 @@ def seed_database():
         cursor.executemany("INSERT INTO magazines (name, category) VALUES (?, ?)", magazines)
 
         # Insert articles
-        cursor.execute("SELECT id FROM authors WHERE name = 'Jane Doe'")
-        jane_id = cursor.fetchone()['id']
-        cursor.execute("SELECT id FROM authors WHERE name = 'John Smith'")
-        john_id = cursor.fetchone()['id']
-        cursor.execute("SELECT id FROM authors WHERE name = 'Alice Johnson'")
-        alice_id = cursor.fetchone()['id']
+        cursor.execute("SELECT id FROM authors WHERE name = 'Trevour Ambia'")
+        trevour_id = cursor.fetchone()['id']
+        cursor.execute("SELECT id FROM authors WHERE name = 'Alvin Mark'")
+        alvin_id = cursor.fetchone()['id']
+        cursor.execute("SELECT id FROM authors WHERE name = 'Gloria Venus'")
+        gloria_id = cursor.fetchone()['id']
         
         cursor.execute("SELECT id FROM magazines WHERE name = 'Tech Trends'")
         tech_id = cursor.fetchone()['id']
@@ -43,10 +43,10 @@ def seed_database():
         health_id = cursor.fetchone()['id']
         
         articles = [
-            ("AI Revolution", jane_id, tech_id),
-            ("Healthy Eating", john_id, health_id),
-            ("Quantum Computing", jane_id, tech_id),
-            ("Fitness Tips", alice_id, health_id)
+            ("AI Revolution", trevour_id, tech_id),
+            ("Healthy Eating", alvin_id, health_id),
+            ("Quantum Computing", trevour_id, tech_id),
+            ("Fitness Tips", gloria_id, health_id)
         ]
         cursor.executemany("INSERT INTO articles (title, author_id, magazine_id) VALUES (?, ?, ?)", articles)
 
